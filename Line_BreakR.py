@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# coding: utf-8
-
+# excel_cleaning_app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,33 +6,27 @@ import io
 
 def clean_excel(file):
     df = pd.read_excel(file)
-    df.columns = df.columns.str.strip()  # Clean column headers
 
+    # Strip column names
+    df.columns = df.columns.str.strip()
+
+    # Strip cell values & remove line breaks
+    df = df.applymap(
+        lambda x: str(x).replace("\n", " ").replace("\r", " ").strip() if pd.notnull(x) else x
+    )
+
+    # Detect line breaks (before removal)
     line_breaks_dict = {}
-
     for col in df.columns:
-        # Detect line breaks before conversion
         rows_with_breaks = df[df[col].astype(str).str.contains(r'[\n\r]', regex=True, na=False)]
         if not rows_with_breaks.empty:
             line_breaks_dict[col] = rows_with_breaks
-
-        # Clean cells (only non-null)
-        df[col] = df[col].apply(
-            lambda x: (
-                str(x)
-                .replace('\n', ' ')
-                .replace('\r', ' ')
-                .replace(u'\u202C', '')
-                .replace(u'\xa0', ' ')
-                .strip()
-            ) if pd.notnull(x) else x
-        )
 
     return df, line_breaks_dict
 
 def main():
     st.set_page_config(page_title="Excel Line Break Cleaner", layout="wide")
-    st.title("📊 Excel Cleaner - Line Break & Whitespace Removal")
+    st.title("📊 Surf Excel - Line Break Detection and Removal")
 
     uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx"])
 
@@ -42,22 +34,22 @@ def main():
         with st.spinner("Processing file..."):
             df_cleaned, line_breaks_info = clean_excel(uploaded_file)
 
-        st.success("✅ File cleaned successfully!")
+        st.success("File processed successfully!")
 
-        st.subheader("🔍 Cleaned Data Preview")
-        st.dataframe(df_cleaned.head(50))
+        st.subheader("Cleaned Data Preview")
+        st.dataframe(df_cleaned.fillna("").head(50))  # Replace NaN with empty string for display
 
-        st.subheader("🚨 Detected Line Breaks (Before Cleaning)")
+        st.subheader("Detected Line Breaks")
         if line_breaks_info:
             for col, rows in line_breaks_info.items():
                 st.markdown(f"### Column: `{col}`")
                 st.dataframe(rows)
         else:
-            st.info("No line breaks detected.")
+            st.info("No line breaks detected in any column.")
 
-        # Prepare cleaned file for download
+        # Option to download cleaned file (with NaN replaced)
         towrite = io.BytesIO()
-        df_cleaned.to_excel(towrite, index=False, engine='openpyxl')
+        df_cleaned.fillna("").to_excel(towrite, index=False, engine='openpyxl')  # Ensure empty cells are blank
         towrite.seek(0)
 
         st.download_button(
