@@ -22,8 +22,8 @@ def clean_excel(file):
     return df
 
 def main():
-    st.set_page_config(page_title="📊 Surf Excel - Line Break & Whitespace Cleaner", layout="wide")
-    st.title("🧹 Excel Cleaner – Remove Line Breaks & Trim Whitespaces")
+    st.set_page_config(page_title=" Excel Cleaner - Line Break & Whitespace Cleaner", layout="wide")
+    st.title("📊 Surf Excel – Remove Line Breaks & Trim Whitespaces")
 
     uploaded_file = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
 
