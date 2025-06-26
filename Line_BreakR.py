@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -7,34 +6,54 @@ import pandas as pd
 import io
 
 def clean_excel(file):
-    # Read all cells as strings to avoid NaN for blanks
-    df = pd.read_excel(file, dtype=str)
-
-    # Strip column names
+    df = pd.read_excel(file, dtype=str)  # Read all as strings to preserve blanks
     df.columns = df.columns.str.strip()
 
-    # Clean cell values: remove line breaks, trim whitespaces
-    for col in df.columns:
-        df[col] = df[col].apply(
-            lambda x: str(x).replace('\n', ' ').replace('\r', ' ').strip() if pd.notnull(x) else ''
-        )
+    line_breaks_dict = {}
 
-    return df
+    # Detect line breaks
+    for col in df.columns:
+        rows_with_breaks = df[df[col].astype(str).str.contains(r'[\n\r]', regex=True, na=False)]
+        if not rows_with_breaks.empty:
+            line_breaks_dict[col] = rows_with_breaks
+
+    # Clean only columns with line breaks
+    for col in line_breaks_dict.keys():
+        df[col] = df[col].astype(str).str.replace(r'[\n\r]', ' ', regex=True)
+
+    # Strip leading/trailing whitespace from all cells
+    for col in df.columns:
+        df[col] = df[col].apply(lambda x: str(x).strip() if pd.notnull(x) else '')
+
+    # Prepare cleaned rows preview (union of all rows with any breaks originally)
+    cleaned_rows = pd.concat(line_breaks_dict.values()).drop_duplicates() if line_breaks_dict else pd.DataFrame()
+
+    return df, cleaned_rows, line_breaks_dict
 
 def main():
-    st.set_page_config(page_title=" Excel Cleaner - Line Break & Whitespace Cleaner", layout="wide")
+    st.set_page_config(page_title="Excel Cleaner - Line Break & Whitespace Cleaner", layout="wide")
     st.title("📊 Surf Excel – Remove Line Breaks & Trim Whitespaces")
 
     uploaded_file = st.file_uploader("📂 Upload Excel File", type=["xlsx"])
 
     if uploaded_file is not None:
-        with st.spinner("Cleaning file..."):
-            cleaned_df = clean_excel(uploaded_file)
+        st.subheader("📄 Original File Preview")
+        df_orig = pd.read_excel(uploaded_file, dtype=str)
+        st.dataframe(df_orig.head(50))
+
+        with st.spinner("🔄 Cleaning file..."):
+            cleaned_df, cleaned_rows, breaks_dict = clean_excel(uploaded_file)
 
         st.success("✅ File cleaned successfully!")
 
         st.subheader("🔍 Cleaned Data Preview")
         st.dataframe(cleaned_df.head(50))
+
+        if not cleaned_rows.empty:
+            st.subheader("🧹 Cleaned Rows (Had Line Breaks Previously)")
+            st.dataframe(cleaned_rows)
+        else:
+            st.info("No line breaks were found in any column.")
 
         # Download cleaned file
         towrite = io.BytesIO()
